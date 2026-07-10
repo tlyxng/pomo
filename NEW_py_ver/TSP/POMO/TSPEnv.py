@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import torch
 
-from TSProblemDef import get_random_problems, augment_xy_data_by_8_fold
+from NEW_py_ver.TSP.TSProblemDef import get_random_problems, augment_xy_data_by_8_fold
 
 
 @dataclass

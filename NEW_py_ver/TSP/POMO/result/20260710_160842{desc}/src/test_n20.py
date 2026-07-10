@@ -82,7 +82,7 @@ def main():
                     model_params=model_params,
                     tester_params=tester_params)
 
-    #copy_all_src(tester.result_folder)
+    copy_all_src(tester.result_folder)
 
     tester.run()
 
