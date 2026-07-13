@@ -13,7 +13,7 @@ import os
 import sys
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, "..")  # for problem_def
+sys.path.insert(0, "../../..")  # for problem_def
 sys.path.insert(0, "../..")  # for utils
 
 
@@ -82,7 +82,7 @@ def main():
                     model_params=model_params,
                     tester_params=tester_params)
 
-    #copy_all_src(tester.result_folder)
+    copy_all_src(tester.result_folder)
 
     tester.run()
 

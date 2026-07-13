@@ -7,7 +7,7 @@ from logging import getLogger
 from TSPEnv import TSPEnv as Env
 from TSPModel import TSPModel as Model
 
-from NEW_py_ver.utils.utils import *
+from utils.utils import *
 
 
 class TSPTester:

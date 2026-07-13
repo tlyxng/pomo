@@ -13,7 +13,7 @@ import os
 import sys
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, "..")  # for problem_def
+sys.path.insert(0, "../../..")  # for problem_def
 sys.path.insert(0, "../..")  # for utils
 
 
@@ -118,6 +118,7 @@ def _set_debug_mode():
 
 def _print_config():
     logger = logging.getLogger('root')
+    logger.info('My active Python Process ID (PID) is: '.format(os.getpid())) # trying to figure out which python process is mine
     logger.info('DEBUG_MODE: {}'.format(DEBUG_MODE))
     logger.info('USE_CUDA: {}, CUDA_DEVICE_NUM: {}'.format(USE_CUDA, CUDA_DEVICE_NUM))
     [logger.info(g_key + "{}".format(globals()[g_key])) for g_key in globals().keys() if g_key.endswith('params')]
