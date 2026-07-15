@@ -11,6 +11,7 @@ def get_random_problems(batch_size, problem_size):
     node_xy = torch.rand(size=(batch_size, problem_size, 2))
     #shape: (batch, problem, 2)
 
+    # uniform distribution for prize first
     node_prize = (1 + torch.randint(0, 100, size=(batch_size, problem_size))).float() / 100
 
     # Fischetti et al. recommended max_length (half of expected optimal TSP tour)
