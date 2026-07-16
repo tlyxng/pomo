@@ -167,13 +167,19 @@ class TOPEnv:
         self.selected_count = 0
         self.current_node = None
         # shape: (batch, pomo)
+        ## if the above throws an error use: # Initialize everyone at the depot (node 0) instead of None to prevent tensor errors
+        # self.current_node = torch.zeros((self.batch_size, self.pomo_size), dtype=torch.long, device=self.depot_node_xy.device)
+
         self.selected_node_list = torch.zeros((self.batch_size, self.pomo_size, 0), dtype=torch.long)
         # shape: (batch, pomo, 0~problem)
 
         self.at_the_depot = torch.ones(size=(self.batch_size, self.pomo_size), dtype=torch.bool)
         # shape: (batch, pomo)
-        self.load = torch.ones(size=(self.batch_size, self.pomo_size))
-        # shape: (batch, pomo)
+        
+        self.remaining_length = self.max_length.expand(self.batch_size, self.pomo_size).clone()
+
+        self.legs_remaining = self.num_vehicles.expand(self.batch_size, self.pomo_size).clone()
+
         self.visited_ninf_flag = torch.zeros(size=(self.batch_size, self.pomo_size, self.problem_size+1))
         # shape: (batch, pomo, problem+1)
         self.ninf_mask = torch.zeros(size=(self.batch_size, self.pomo_size, self.problem_size+1))
@@ -183,12 +189,11 @@ class TOPEnv:
 
         reward = None
         done = False
-        return Reset_State(self.problems), reward, done
+        return self.reset_state, reward, done
 
     def pre_step(self):
         self.step_state.remaining_length = self.remaining_length
         self.step_state.legs_remaining = self.legs_remaining # claude ver has this substracting the completed legs
-        self.step_state.load = self.load
         self.step_state.current_node = self.current_node
         self.step_state.ninf_mask = self.ninf_mask
         self.step_state.finished = self.finished
