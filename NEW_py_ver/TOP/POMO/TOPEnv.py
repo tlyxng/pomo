@@ -14,7 +14,9 @@ class Reset_State:
     node_prize: torch.Tensor = None
     # shape: (batch, problem)
     max_length: torch.Tensor = None
-    # shape: (batch, 1)
+    # shape: (batch, 1), budget for a single leg
+    num_vehicles: torch.Tensor = None
+    # shape: (batch, 1) m, how many legs are allowed
 
 
 @dataclass
@@ -28,6 +30,11 @@ class Step_State:
     
     remaining_length: torch.Tensor = None
     # shape: (batch, pomo)
+    # gets reset every time you start on a new leg. budget left on CURRENT leg
+
+    legs_remaining: torch.Tensor = None
+    # shape: (batch, pomo)
+    # additional legs after this one
 
     current_node: torch.Tensor = None
     # shape: (batch, pomo)
@@ -51,6 +58,7 @@ class TOPEnv:
         self.saved_node_xy = None
         self.saved_node_prize = None
         self.saved_max_length = None
+        self.saved_num_vehicles = None
         self.saved_index = None
 
         # Const @Load_Problem
@@ -65,8 +73,10 @@ class TOPEnv:
         # shape: (batch, problem+1)
         self.max_length = None
         # shape: (batch, 1)
+        self.num_vehicles = None
+        # shape: (batch, 1) 
         
-        # Dynamic-1
+        # Dynamic-1 (path taken so far)
         ####################################
         self.selected_count = None
         self.current_node = None
@@ -74,11 +84,13 @@ class TOPEnv:
         self.selected_node_list = None
         # shape: (batch, pomo, 0~)
 
-        # Dynamic-2
+        # Dynamic-2 (OP constraint state)
         ####################################
         self.at_the_depot = None
         # shape: (batch, pomo)
-        self.load = None
+        self.remaining_length = None
+        # shape: (batch, pomo)
+        self.legs_remaining = None
         # shape: (batch, pomo)
         self.visited_ninf_flag = None
         # shape: (batch, pomo, problem+1)
@@ -100,17 +112,20 @@ class TOPEnv:
         self.saved_node_xy = loaded_dict['node_xy']
         self.saved_node_prize = loaded_dict['node_prize']
         self.saved_max_length = loaded_dict['max_length']
+        self.saved_num_vehicles = loaded_dict.get('num_vehicles', None)
         self.saved_index = 0
    
     def load_problems(self, batch_size, aug_factor=1):
         self.batch_size = batch_size
 
         if not self.FLAG__use_saved_problems:
-            depot_xy, node_xy, node_prize = get_random_problems(batch_size, self.problem_size)
+            depot_xy, node_xy, node_prize, max_length, num_vehicles = get_random_problems(batch_size, self.problem_size)
         else:
             depot_xy = self.saved_depot_xy[self.saved_index:self.saved_index+batch_size]
             node_xy = self.saved_node_xy[self.saved_index:self.saved_index+batch_size]
             node_prize = self.saved_node_prize[self.saved_index:self.saved_index+batch_size]
+            max_length = self.saved_max_length[self.saved_index:self.saved_index+batch_size]
+            num_vehicles = self.saved_num_vehicles[self.saved_index:self.saved_index+batch_size]    
             self.saved_index += batch_size
 
         if aug_factor > 1:
@@ -119,8 +134,15 @@ class TOPEnv:
                 depot_xy = augment_xy_data_by_8_fold(depot_xy)
                 node_xy = augment_xy_data_by_8_fold(node_xy)
                 node_prize = node_prize.repeat(8, 1)
+                max_length = max_length.repeat(8, 1)
+                num_vehicles = num_vehicles.repeat(8, 1)
             else:
                 raise NotImplementedError
+
+        self.max_length = max_length
+        # shape: (batch, 1)
+        self.num_vehicles = num_vehicles
+        # shape: (batch, 1)
 
         self.depot_node_xy = torch.cat((depot_xy, node_xy), dim=1)
         # shape: (batch, problem+1, 2)
@@ -135,6 +157,8 @@ class TOPEnv:
         self.reset_state.depot_xy = depot_xy
         self.reset_state.node_xy = node_xy
         self.reset_state.node_prize = node_prize
+        self.reset_state.max_length = max_length
+        self.reset_state.num_vehicles = num_vehicles
 
         self.step_state.BATCH_IDX = self.BATCH_IDX
         self.step_state.POMO_IDX = self.POMO_IDX
@@ -162,7 +186,8 @@ class TOPEnv:
         return Reset_State(self.problems), reward, done
 
     def pre_step(self):
-        self.step_state.selected_count = self.selected_count
+        self.step_state.remaining_length = self.remaining_length
+        self.step_state.legs_remaining = self.legs_remaining # claude ver has this substracting the completed legs
         self.step_state.load = self.load
         self.step_state.current_node = self.current_node
         self.step_state.ninf_mask = self.ninf_mask
@@ -175,7 +200,7 @@ class TOPEnv:
     def step(self, selected):
         # selected.shape: (batch, pomo)
 
-        # Dynamic-1
+        # Dynamic-1: extend path
         ####################################
         self.selected_count += 1
         self.current_node = selected
@@ -215,8 +240,8 @@ class TOPEnv:
         # do not mask depot for finished episode.
         self.ninf_mask[:, :, 0][self.finished] = 0
 
-        self.step_state.selected_count = self.selected_count
-        self.step_state.load = self.load
+        self.step_state.remaining_length = self.remaining_length
+        self.step_state.legs_remaining = self.legs_remaining # calude ver is diff
         self.step_state.current_node = self.current_node
         self.step_state.ninf_mask = self.ninf_mask
         self.step_state.finished = self.finished

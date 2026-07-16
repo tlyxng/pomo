@@ -19,7 +19,11 @@ def get_random_problems(batch_size, problem_size):
     default_max_length = {20: 2.0, 50: 3.0, 100: 4.0}.get(problem_size, 3.0)
     max_length = torch.full((batch_size, 1), default_max_length)
 
-    return depot_xy, node_xy, node_prize, max_length
+    # uniform distribution for vehicle count between 2 and 4
+    # shape: (batch, 1)
+    vehicle_count = torch.randint(2, 5, size=(batch_size, 1))
+
+    return depot_xy, node_xy, node_prize, max_length, vehicle_count
 
 def augment_xy_data_by_8_fold(xy_data):
     # problems.shape: (batch, N, 2)
