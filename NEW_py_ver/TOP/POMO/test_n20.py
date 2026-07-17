@@ -1,7 +1,7 @@
 ##########################################################################################
 # Machine Environment Config
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 USE_CUDA = not DEBUG_MODE
 CUDA_DEVICE_NUM = 0
 
@@ -56,7 +56,7 @@ tester_params = {
     'test_batch_size': 4, #10000
     'augmentation_enable': True,
     'aug_factor': 8,
-   # 'aug_batch_size': 1000,
+    'aug_batch_size': 100, #1000
 }
 if tester_params['augmentation_enable']:
     tester_params['test_batch_size'] = tester_params['aug_batch_size']

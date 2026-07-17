@@ -1,0 +1,6 @@
+[2026-07-17 16:39:53] test_n20.py(97) : DEBUG_MODE: True
+[2026-07-17 16:39:53] test_n20.py(98) : USE_CUDA: False, CUDA_DEVICE_NUM: 0
+[2026-07-17 16:39:53] test_n20.py(99) : env_params{'problem_size': 20, 'pomo_size': 20}
+[2026-07-17 16:39:53] test_n20.py(99) : model_params{'embedding_dim': 128, 'sqrt_embedding_dim': 11.313708498984761, 'encoder_layer_num': 6, 'qkv_dim': 16, 'head_num': 8, 'logit_clipping': 10, 'ff_hidden_dim': 512, 'eval_type': 'argmax'}
+[2026-07-17 16:39:53] test_n20.py(99) : tester_params{'use_cuda': False, 'cuda_device_num': 0, 'model_load': None, 'test_episodes': 100, 'test_batch_size': 100, 'augmentation_enable': True, 'aug_factor': 8, 'aug_batch_size': 100}
+[2026-07-17 16:39:53] test_n20.py(99) : logger_params{'log_file': {'desc': 'test__tsp_n20', 'filename': 'run_log', 'filepath': './result/20260717_173952_test__tsp_n20'}}
