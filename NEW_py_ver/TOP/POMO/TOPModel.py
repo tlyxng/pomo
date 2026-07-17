@@ -20,12 +20,11 @@ class TOPModel(nn.Module):
         # shape: (batch, 1, 2)
         node_xy = reset_state.node_xy
         # shape: (batch, problem, 2)
-        node_demand = reset_state.node_demand
-        # shape: (batch, problem)
-        node_xy_demand = torch.cat((node_xy, node_demand[:, :, None]), dim=2)
-        # shape: (batch, problem, 3)
 
-        self.encoded_nodes = self.encoder(depot_xy, node_xy_demand)
+        node_prize = reset_state.node_prize
+        node_xy_prize = torch.cat((node_xy, node_prize[:, :, None]), dim=2) # (batch, problem, 3)
+
+        self.encoded_nodes = self.encoder(depot_xy, node_xy_prize)
         # shape: (batch, problem+1, embedding)
         self.decoder.set_kv(self.encoded_nodes)
 

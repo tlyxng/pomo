@@ -4,8 +4,8 @@ import torch
 import os
 from logging import getLogger
 
-from NEW_py_ver.TOP.POMO.TOPEnv import TSPEnv as Env
-from NEW_py_ver.TOP.POMO.TOPModel import TSPModel as Model
+from TOPEnv import TSPEnv as Env
+from TOPModel import TSPModel as Model
 
 from utils.utils import *
 

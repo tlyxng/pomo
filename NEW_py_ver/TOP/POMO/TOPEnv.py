@@ -205,41 +205,71 @@ class TOPEnv:
     def step(self, selected):
         # selected.shape: (batch, pomo)
 
-        # Dynamic-1: extend path
+        # Dynamic-1: extend path and compute distance
         ####################################
         self.selected_count += 1
+
+
+        prev_node = self.current_node
+
+        # gather coordinates of previous and selected nodes
+        all_xy = self.depot_node_xy[:, None, :, :].expand(-1, self.pomo_size, -1, -1)
+        # shape: (batch, pomo, problem+1, 2)
+        prev_xy = all_xy.gather(dim=2, index=prev_node[:, :, None, None].expand(-1, -1, -1, 2)).squeeze(2) # (batch, pomo, 2)
+        curr_xy = all_xy.gather(dim=2, index=selected[:, :, None, None].expand(-1, -1, -1, 2)).squeeze(2)  # (batch, pomo, 2)
+        step_distance = ((prev_xy - curr_xy) ** 2).sum(dim=2).sqrt() # (batch, pomo)
+
+        self.remaining_length -= step_distance
+
+        ## Update current node and selected node list
         self.current_node = selected
         # shape: (batch, pomo)
         self.selected_node_list = torch.cat((self.selected_node_list, self.current_node[:, :, None]), dim=2)
         # shape: (batch, pomo, 0~)
 
-        # Dynamic-2
+        # Dynamic-2 Depot Return
         ####################################
         self.at_the_depot = (selected == 0)
 
-        demand_list = self.depot_node_demand[:, None, :].expand(self.batch_size, self.pomo_size, -1)
-        # shape: (batch, pomo, problem+1)
-        gathering_index = selected[:, :, None]
-        # shape: (batch, pomo, 1)
-        selected_demand = demand_list.gather(dim=2, index=gathering_index).squeeze(dim=2)
-        # shape: (batch, pomo)
-        self.load -= selected_demand
-        self.load[self.at_the_depot] = 1 # refill loaded at the depot
+        # minus one leg if returned to depot and not the first step (prev_node != 0)
+        returned_to_depot = self.at_the_depot & (prev_node != 0)
+        self.legs_remaining[returned_to_depot] -= 1
 
+        # reset budget if returned to depot
+        next_leg_available = (self.legs_remaining > 0) & self.at_the_depot
+        self.remaining_length[next_leg_available] = self.max_length.expand_as(self.remaining_length)[next_leg_available]
+
+        # Masking Logic
+        ####################################
         self.visited_ninf_flag[self.BATCH_IDX, self.POMO_IDX, selected] = float('-inf')
         # shape: (batch, pomo, problem+1)
+    
         self.visited_ninf_flag[:, :, 0][~self.at_the_depot] = 0  # depot is considered unvisited, unless you are AT the depot
 
         self.ninf_mask = self.visited_ninf_flag.clone()
-        round_error_epsilon = 0.00001
-        demand_too_large = self.load[:, :, None] + round_error_epsilon < demand_list
-        # shape: (batch, pomo, problem+1)
-        self.ninf_mask[demand_too_large] = float('-inf')
-        # shape: (batch, pomo, problem+1)
 
-        newly_finished = (self.visited_ninf_flag == float('-inf')).all(dim=2)
-        # shape: (batch, pomo)
-        self.finished = self.finished + newly_finished
+        # Mask the nodes that cannot be visited due to budget constraints
+        # Check distances to potential next nodes from current node
+        curr_xy_expanded = curr_xy[:, :, None, :].expand(-1, -1, self.problem_size + 1, -1)
+        next_node_xy = self.depot_node_xy[:, None, :, :].expand(self.batch_size, self.pomo_size, -1, -1)
+
+        # Distance from current node to all other nodes
+        dist_to_next = ((curr_xy_expanded - next_node_xy) ** 2).sum(dim=3).sqrt() # (batch, pomo, problem+1)
+        
+        # Distance from those next nodes back to the depot (since every leg must finish at depot)
+        depot_xy_expanded = self.depot_node_xy[:, [0], None, :].expand(self.batch_size, self.pomo_size, self.problem_size + 1, -1)
+        dist_next_to_depot = ((next_node_xy - depot_xy_expanded) ** 2).sum(dim=3).sqrt() # (batch, pomo, problem+1)
+        
+        # Feasibility check: Can we visit node J and make it back to the depot?
+        total_required_budget = dist_to_next + dist_next_to_depot
+        insufficient_budget = (self.remaining_length[:, :, None] < total_required_budget)
+        self.ninf_mask[insufficient_budget] = float('-inf')
+
+        # Finished if no more legs + all active targets are visited/unreachable
+        no_more_legs = (self.legs_remaining == 0)
+        no_feasible_moves = (self.ninf_mask[:, :, 1:] == float('-inf')).all(dim=2)
+        
+        self.finished = no_more_legs | (no_feasible_moves & self.at_the_depot)
         # shape: (batch, pomo)
 
         # do not mask depot for finished episode.
@@ -254,27 +284,23 @@ class TOPEnv:
         # returning values
         done = self.finished.all()
         if done:
-            reward = -self._get_travel_distance()  # note the minus sign!
+            reward = -self._get_collected_prize()  # note the minus sign!
         else:
             reward = None
 
         return self.step_state, reward, done
 
-    def _get_travel_distance(self):
-        gathering_index = self.selected_node_list[:, :, :, None].expand(-1, -1, -1, 2)
-        # shape: (batch, pomo, selected_list_length, 2)
-        all_xy = self.depot_node_xy[:, None, :, :].expand(-1, self.pomo_size, -1, -1)
-        # shape: (batch, pomo, problem+1, 2)
+    def _get_collected_prize(self):
+        # We collect prizes only from unique visited nodes (excluding depot 0)
+        # selected_node_list has shape: (batch, pomo, sequence_length)
+        
+        # Create a visited mask
+        visited_mask = torch.zeros((self.batch_size, self.pomo_size, self.problem_size + 1), device=self.depot_node_xy.device)
+        visited_mask.scatter_(dim=2, index=self.selected_node_list, value=1.0)
+        visited_mask[:, :, 0] = 0.0 # Ignore depot prizes (which is 0 anyway)
+        
+        prizes = self.depot_node_prize[:, None, :].expand(-1, self.pomo_size, -1)
+        collected_prizes = (visited_mask * prizes).sum(dim=2) # (batch, pomo)
+        return collected_prizes
 
-        ordered_seq = all_xy.gather(dim=2, index=gathering_index)
-        # shape: (batch, pomo, selected_list_length, 2)
-
-        rolled_seq = ordered_seq.roll(dims=2, shifts=-1)
-        segment_lengths = ((ordered_seq-rolled_seq)**2).sum(3).sqrt()
-        # shape: (batch, pomo, selected_list_length)
-
-        travel_distances = segment_lengths.sum(2)
-        # shape: (batch, pomo)
-        return travel_distances
-      
 
