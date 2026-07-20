@@ -118,10 +118,12 @@ class TOPTester:
 
         max_pomo_reward, _ = aug_reward.max(dim=2)  # get best results from pomo
         # shape: (augmentation, batch)
-        no_aug_score = -max_pomo_reward[0, :].float().mean()  # negative sign to make positive value
+        # already positive
+        no_aug_score = max_pomo_reward[0, :].float().mean()  # negative sign to make positive value
 
         max_aug_pomo_reward, _ = max_pomo_reward.max(dim=0)  # get best results from augmentation
         # shape: (batch,)
-        aug_score = -max_aug_pomo_reward.float().mean()  # negative sign to make positive value
+        # already positive
+        aug_score = max_aug_pomo_reward.float().mean()  # negative sign to make positive value
 
         return no_aug_score.item(), aug_score.item()

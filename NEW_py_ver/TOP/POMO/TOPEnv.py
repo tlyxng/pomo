@@ -24,8 +24,8 @@ class Step_State:
     BATCH_IDX: torch.Tensor = None
     POMO_IDX: torch.Tensor = None
     # shape: (batch, pomo)
-    # selected_count: int = None
-    # load: torch.Tensor = None
+    selected_count: int = None
+    load: torch.Tensor = None
     # shape: (batch, pomo)
     
     remaining_length: torch.Tensor = None
@@ -165,10 +165,10 @@ class TOPEnv:
 
     def reset(self):
         self.selected_count = 0
-        self.current_node = None
+        # self.current_node = None
         # shape: (batch, pomo)
-        ## if the above throws an error use: # Initialize everyone at the depot (node 0) instead of None to prevent tensor errors
-        # self.current_node = torch.zeros((self.batch_size, self.pomo_size), dtype=torch.long, device=self.depot_node_xy.device)
+        # Initialize everyone at the depot (node 0) instead of None to prevent tensor errors
+        self.current_node = torch.zeros((self.batch_size, self.pomo_size), dtype=torch.long, device=self.depot_node_xy.device)
 
         self.selected_node_list = torch.zeros((self.batch_size, self.pomo_size, 0), dtype=torch.long)
         # shape: (batch, pomo, 0~problem)
@@ -194,9 +194,13 @@ class TOPEnv:
     def pre_step(self):
         self.step_state.remaining_length = self.remaining_length
         self.step_state.legs_remaining = self.legs_remaining # claude ver has this substracting the completed legs
+
         self.step_state.current_node = self.current_node
         self.step_state.ninf_mask = self.ninf_mask
         self.step_state.finished = self.finished
+
+        self.step_state.selected_count = self.selected_count
+        self.step_state.load = self.remaining_length / self.max_length.expand_as(self.remaining_length)
         
         reward = None
         done = False
@@ -226,6 +230,9 @@ class TOPEnv:
         # shape: (batch, pomo)
         self.selected_node_list = torch.cat((self.selected_node_list, self.current_node[:, :, None]), dim=2)
         # shape: (batch, pomo, 0~)
+
+        self.step_state.selected_count = self.selected_count
+        self.step_state.load = self.remaining_length / self.max_length.expand_as(self.remaining_length)
 
         # Dynamic-2 Depot Return
         ####################################
@@ -265,6 +272,8 @@ class TOPEnv:
         insufficient_budget = (self.remaining_length[:, :, None] < total_required_budget)
         self.ninf_mask[insufficient_budget] = float('-inf')
 
+        self.ninf_mask[:, :, 0] = self.visited_ninf_flag[:, :, 0]  # depot feasibility governed only by visited-flag, never by budget
+
         # Finished if no more legs + all active targets are visited/unreachable
         no_more_legs = (self.legs_remaining == 0)
         no_feasible_moves = (self.ninf_mask[:, :, 1:] == float('-inf')).all(dim=2)
@@ -284,7 +293,7 @@ class TOPEnv:
         # returning values
         done = self.finished.all()
         if done:
-            reward = -self._get_collected_prize()  # note the minus sign!
+            reward = self._get_collected_prize()  # positive sign to MAXIMIZE reward
         else:
             reward = None
 

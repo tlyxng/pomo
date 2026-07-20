@@ -27,7 +27,7 @@ class Step_State:
     # selected_count: int = None
     # load: torch.Tensor = None
     # shape: (batch, pomo)
-    
+    selected_count: int = None
     remaining_length: torch.Tensor = None
     # shape: (batch, pomo)
     # gets reset every time you start on a new leg. budget left on CURRENT leg
