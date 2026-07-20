@@ -1,7 +1,7 @@
 ##########################################################################################
 # Machine Environment Config
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 USE_CUDA = not DEBUG_MODE
 CUDA_DEVICE_NUM = 0
 
@@ -59,9 +59,9 @@ optimizer_params = {
 trainer_params = {
     'use_cuda': USE_CUDA,
     'cuda_device_num': CUDA_DEVICE_NUM,
-    'epochs': 10,
-    'train_episodes': 10, # 100
-    'train_batch_size': 10, # 64
+    'epochs': 510,
+    'train_episodes': 100, # 100
+    'train_batch_size': 64, # 64
     'logging': {
         'model_save_interval': 10,
         'img_save_interval': 10,
@@ -118,7 +118,7 @@ def _set_debug_mode():
 
 def _print_config():
     logger = logging.getLogger('root')
-    logger.info('My active Python Process ID (PID) is: '.format(os.getpid())) # trying to figure out which python process is mine
+    logger.info('My active Python Process ID (PID) is: {}'.format(os.getpid())) # trying to figure out which python process is mine
     logger.info('DEBUG_MODE: {}'.format(DEBUG_MODE))
     logger.info('USE_CUDA: {}, CUDA_DEVICE_NUM: {}'.format(USE_CUDA, CUDA_DEVICE_NUM))
     [logger.info(g_key + "{}".format(globals()[g_key])) for g_key in globals().keys() if g_key.endswith('params')]
