@@ -19,8 +19,14 @@ Usage (from inside your NEW_py_ver/TOP/POMO folder, so the imports resolve):
 """
 
 import torch
+import os
+import sys
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, "../../..")  # for problem_def
+sys.path.insert(0, "../..")  # for utils
 
 
 def sanity_check(env):
