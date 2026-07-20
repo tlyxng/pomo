@@ -185,7 +185,8 @@ class TOPTrainer:
         # Score
         ###############################################
         max_pomo_reward, _ = reward.max(dim=1)  # get best results from pomo
-        score_mean = -max_pomo_reward.float().mean()  # negative sign to make positive value
+        # positive sign since MAXIMIZING
+        score_mean = max_pomo_reward.float().mean() 
 
         # Step & Return
         ###############################################
