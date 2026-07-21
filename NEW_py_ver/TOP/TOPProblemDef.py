@@ -21,7 +21,7 @@ def get_random_problems(batch_size, problem_size):
 
     # uniform distribution for vehicle count between 2 and 4
     # shape: (batch, 1)
-    vehicle_count = torch.randint(2, 5, size=(batch_size, 1))
+    vehicle_count = torch.full((batch_size, 1), 3) #randint(2, 5, size=(batch_size, 1))
 
     return depot_xy, node_xy, node_prize, max_length, vehicle_count
 
